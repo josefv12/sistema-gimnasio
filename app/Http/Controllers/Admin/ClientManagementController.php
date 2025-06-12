@@ -4,17 +4,30 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\Cliente; // Asegúrate de importar el modelo Cliente
+use App\Models\Cliente;
+use App\Models\TipoMembresia;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use App\Models\ClienteMembresia;
+use Carbon\Carbon;
+use App\Models\Pago;
 
 class ClientManagementController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $clients = Cliente::all();
-        return view('admin.clients.index', ['clients' => $clients]);
+        $query = Cliente::query();
+
+        // Aplica el filtro de búsqueda si existe
+        $query->when($request->input('search'), function ($q, $search) {
+            return $q->where('nombre', 'like', "%{$search}%")
+                ->orWhere('correo', 'like', "%{$search}%");
+        });
+
+        $clients = $query->latest()->paginate(10);
+
+        return view('admin.clients.index', compact('clients'));
     }
 
     public function create()
@@ -44,8 +57,60 @@ class ClientManagementController extends Controller
 
         $client->assignRole('cliente');
 
-        return redirect()->route('admin.clients.index')
-            ->with('success', '¡Cliente creado exitosamente!');
+        return redirect()->route('admin.clients.show', $client->id_cliente)
+            ->with('success', '¡Cliente creado! Ahora puedes asignarle una membresía.');
+    }
+
+    // ===== INICIO DE LA MODIFICACIÓN =====
+    public function show(Cliente $cliente)
+    {
+        // Carga todas las relaciones necesarias para el perfil completo del cliente
+        $cliente->load([
+            'clienteMembresias.tipoMembresia',
+            'clienteMembresias.pagos',
+            'asistencias',
+            'asignacionesRutina.rutina.entrenador' // <-- AÑADIDO: Carga las asignaciones, la rutina y el entrenador que la creó
+        ]);
+
+        return view('admin.clients.show', compact('cliente'));
+    }
+    // ===== FIN DE LA MODIFICACIÓN =====
+
+    public function createMembership(Cliente $cliente)
+    {
+        $tiposMembresia = TipoMembresia::where('estado', 'activo')->get();
+        return view('admin.clients.assign_membership', compact('cliente', 'tiposMembresia'));
+    }
+
+    public function storeMembership(Request $request, Cliente $cliente)
+    {
+        $validatedData = $request->validate([
+            'id_tipo_membresia' => 'required|integer|exists:Tipo_Membresia,id_tipo_membresia',
+            'fecha_inicio' => 'required|date',
+        ]);
+
+        $tipoMembresia = TipoMembresia::find($validatedData['id_tipo_membresia']);
+        $fechaInicio = Carbon::parse($validatedData['fecha_inicio']);
+        $fechaFin = $fechaInicio->copy()->addDays($tipoMembresia->duracion_dias);
+
+        $nuevaMembresia = ClienteMembresia::create([
+            'id_cliente' => $cliente->id_cliente,
+            'id_tipo_membresia' => $tipoMembresia->id_tipo_membresia,
+            'fecha_inicio' => $validatedData['fecha_inicio'],
+            'fecha_fin' => $fechaFin,
+            'estado' => 'activa',
+        ]);
+
+        Pago::create([
+            'id_cliente_membresia' => $nuevaMembresia->id_cliente_membresia,
+            'fecha_pago' => Carbon::now(),
+            'monto' => $tipoMembresia->precio,
+            'metodo_pago' => 'Efectivo',
+            'estado' => 'Completado',
+        ]);
+
+        return redirect()->route('admin.clients.show', $cliente->id_cliente)
+            ->with('success', '¡Membresía "' . $tipoMembresia->nombre . '" asignada y pago registrado exitosamente!');
     }
 
     public function edit(Cliente $cliente)
@@ -88,36 +153,19 @@ class ClientManagementController extends Controller
             ->with('success', '¡Cliente actualizado exitosamente!');
     }
 
-    /**
-     * Elimina un cliente específico de la base de datos.
-     *
-     * @param  \App\Models\Cliente  $cliente // Route Model Binding
-     * @return \Illuminate\Http\RedirectResponse
-     */
     public function destroy(Cliente $cliente)
     {
         try {
-            // Consideraciones: ¿El cliente tiene membresías activas, pagos, reservas, etc.?
-            // La configuración de tus claves foráneas (ON DELETE RESTRICT, CASCADE, SET NULL)
-            // determinará qué sucede. Si usas RESTRICT, la eliminación fallará si hay datos asociados.
-
             $cliente->delete();
-
             return redirect()->route('admin.clients.index')
                 ->with('success', '¡Cliente eliminado exitosamente!');
         } catch (\Illuminate\Database\QueryException $e) {
-            // Capturar excepciones de consulta, comúnmente por restricciones de clave foránea
-            if ($e->getCode() === '23000' || str_contains($e->getMessage(), 'constraint violation')) {
+            if ($e->getCode() === '23000') {
                 return redirect()->route('admin.clients.index')
-                    ->with('error', 'No se pudo eliminar el cliente. Es posible que tenga datos asociados (membresías, pagos, reservas, etc.).');
+                    ->with('error', 'No se pudo eliminar el cliente. Es posible que tenga datos asociados.');
             }
-            // Para otros errores de base de datos
             return redirect()->route('admin.clients.index')
                 ->with('error', 'Error al eliminar el cliente: ' . $e->getMessage());
-        } catch (\Exception $e) {
-            // Capturar cualquier otra excepción general
-            return redirect()->route('admin.clients.index')
-                ->with('error', 'Ocurrió un error inesperado al intentar eliminar el cliente: ' . $e->getMessage());
         }
     }
 }

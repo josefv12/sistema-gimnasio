@@ -9,11 +9,25 @@ use Illuminate\Validation\Rule;
 
 class ExerciseController extends Controller
 {
-    public function index()
+    // ===== INICIO DE LA MODIFICACIÓN =====
+    public function index(Request $request)
     {
-        $exercises = Ejercicio::orderBy('nombre', 'asc')->paginate(10);
-        return view('admin.exercises.index', ['exercises' => $exercises]);
+        // 1. Empezamos una consulta base con el modelo Ejercicio.
+        $query = Ejercicio::query();
+
+        // 2. Usamos when() para aplicar un filtro SÓLO SI existe un input 'search' en la URL.
+        $query->when($request->input('search'), function ($q, $search) {
+            // Buscamos el término en las columnas 'nombre' Y 'descripcion'.
+            return $q->where('nombre', 'like', "%{$search}%")
+                ->orWhere('descripcion', 'like', "%{$search}%");
+        });
+
+        // 3. Ordenamos y paginamos el resultado de la consulta (ya sea la original o la filtrada).
+        $exercises = $query->orderBy('nombre', 'asc')->paginate(10);
+
+        return view('admin.exercises.index', compact('exercises'));
     }
+    // ===== FIN DE LA MODIFICACIÓN =====
 
     public function create()
     {

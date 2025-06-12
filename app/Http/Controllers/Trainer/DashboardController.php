@@ -11,10 +11,11 @@ use App\Models\Cliente;
 use App\Models\AsignacionRutinaCliente;
 use App\Models\SeguimientoProgreso;
 use Carbon\Carbon;
+use App\Models\Asistencia;
 
 class DashboardController extends Controller
 {
-    // ... (métodos index, listMyClasses, showClassForAttendance, markTrainerAttendance, listMyClients, showClientProgress, createClientProgress existentes) ...
+    // ... (todos tus otros métodos como index, listMyClasses, etc. se mantienen igual) ...
     public function index()
     {
         $user = Auth::guard('trainer')->user();
@@ -116,41 +117,61 @@ class DashboardController extends Controller
         return view('trainer.clients.progress.create', compact('cliente', 'activeRoutineAssignments'));
     }
 
-    /**
-     * Almacena un nuevo registro de progreso para un cliente.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \App\Models\Cliente  $cliente
-     * @return \Illuminate\Http\RedirectResponse
-     */
     public function storeClientProgress(Request $request, Cliente $cliente)
     {
         $trainerId = Auth::guard('trainer')->id();
 
-        // Validar los datos del formulario
         $validatedData = $request->validate([
-            'fecha' => 'required|date', // Tu migración usa dateTime, pero el input es datetime-local
-            'peso' => 'nullable|numeric|min:0|max:500', // 'peso' según tu migración
+            'fecha' => 'required|date',
+            'peso' => 'nullable|numeric|min:0|max:500',
             'medidas' => 'nullable|string',
             'rendimiento_notas' => 'nullable|string',
-            'id_asignacion' => 'nullable|exists:Asignacion_Rutina_Cliente,id_asignacion', // FK a Asignacion_Rutina_Cliente
+            'id_asignacion' => 'nullable|exists:Asignacion_Rutina_Cliente,id_asignacion',
         ]);
 
-        // Añadir el id_cliente y el id_entrenador (quien registra)
         $dataToStore = array_merge($validatedData, [
             'id_cliente' => $cliente->id_cliente,
-            // 'id_entrenador_registra' => $trainerId, // <-- Necesitarías esta columna en Seguimiento_Progreso
         ]);
 
-        // Si id_asignacion es un string vacío, convertirlo a null
         if (isset($dataToStore['id_asignacion']) && $dataToStore['id_asignacion'] === '') {
             $dataToStore['id_asignacion'] = null;
         }
 
-        // Crear el nuevo registro de progreso
         SeguimientoProgreso::create($dataToStore);
 
         return redirect()->route('trainer.clients.progress_tracking', $cliente->id_cliente)
             ->with('success', '¡Nuevo progreso registrado exitosamente para ' . $cliente->nombre . '!');
     }
+
+    // ===== INICIO DE LA MODIFICACIÓN CORREGIDA =====
+    /**
+     * Registra una nueva asistencia (check-in) diaria para un cliente.
+     * Verifica que no se haya registrado una asistencia previa en el mismo día.
+     */
+    public function registerAttendance(Cliente $cliente)
+    {
+        // 1. Verificar si ya existe un registro de asistencia para este cliente HOY.
+        $today = Carbon::today();
+        $asistenciaExistente = Asistencia::where('id_cliente', $cliente->id_cliente)
+            // Usamos el nombre correcto de la columna: 'hora_entrada'
+            ->whereDate('hora_entrada', $today)
+            ->exists();
+
+        // 2. Si ya existe, redirigir con un mensaje de advertencia.
+        if ($asistenciaExistente) {
+            return back()->with('warning', 'La asistencia para ' . $cliente->nombre . ' ya fue registrada el día de hoy.');
+        }
+
+        // 3. Si no existe, crear el nuevo registro con los campos correctos.
+        $cliente->asistencias()->create([
+            // Usamos el nombre correcto: 'hora_entrada'
+            'hora_entrada' => now(),
+            // Añadimos el tipo de registro para que coincida con el modelo
+            'tipo_registro' => 'general',
+        ]);
+
+        // 4. Redirigir con un mensaje de éxito.
+        return back()->with('success', 'Asistencia registrada para ' . $cliente->nombre);
+    }
+    // ===== FIN DE LA MODIFICACIÓN CORREGIDA =====
 }

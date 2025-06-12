@@ -56,7 +56,8 @@
                                 <tr>
                                     <td><strong>{{ $membership->tipoMembresia->nombre ?? 'N/A' }}</strong></td>
                                     <td>{{ $membership->fecha_inicio->format('d/m/Y') }} -
-                                        {{ $membership->fecha_fin->format('d/m/Y') }}</td>
+                                        {{ $membership->fecha_fin->format('d/m/Y') }}
+                                    </td>
                                     <td>
                                         @if($membership->estado == 'activa')
                                             <span class="badge bg-success">Activa</span>

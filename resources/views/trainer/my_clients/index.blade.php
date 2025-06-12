@@ -6,32 +6,35 @@
 
 @section('content')
     @if (session('success'))
-        <div class="alert alert-success mb-3">
-            {{ session('success') }}
+        <div class="alert alert-success mb-3" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>{{ session('success') }}
+        </div>
+    @endif
+    @if (session('warning'))
+        <div class="alert alert-warning mb-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ session('warning') }}
         </div>
     @endif
     @if (session('error'))
-        <div class="alert alert-danger mb-3">
-            {{ session('error') }}
+        <div class="alert alert-danger mb-3" role="alert">
+            <i class="bi bi-x-circle-fill me-2"></i>{{ session('error') }}
         </div>
     @endif
 
     @if(isset($clients) && !$clients->isEmpty())
         <div class="card shadow-sm">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0">Clientes</h5>
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Clientes Asignados</h5>
             </div>
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table class="table table-hover mb-0 align-middle">
                     <thead>
                         <tr>
                             <th>ID</th>
                             <th>Nombre</th>
-                            <th>Edad</th>
-                            <th>Género</th>
                             <th>Correo</th>
                             <th>Teléfono</th>
-                            <th>Acciones</th>
+                            <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -39,15 +42,38 @@
                             <tr>
                                 <td>{{ $client->id_cliente }}</td>
                                 <td>{{ $client->nombre }}</td>
-                                <td>{{ $client->edad ?? 'N/A' }}</td>
-                                <td>{{ $client->genero ?? 'N/A' }}</td>
                                 <td>{{ $client->correo }}</td>
                                 <td>{{ $client->telefono ?? 'N/A' }}</td>
-                                <td>
-                                    {{-- Enlace para ver/gestionar progreso (AHORA ACTIVO) --}}
-                                    <a href="{{ route('trainer.clients.progress_tracking', $client->id_cliente) }}"
-                                        class="btn btn-sm btn-primary">Ver/Registrar Progreso</a>
+
+                                {{-- ===== INICIO DE LA MODIFICACIÓN ===== --}}
+                                <td class="text-center">
+                                    <div class="btn-group" role="group" aria-label="Acciones de Cliente">
+
+                                        {{-- Botón de Check-in --}}
+                                        <form action="{{ route('trainer.clients.attendance.store', $client->id_cliente) }}"
+                                            method="POST" class="d-inline">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-success"
+                                                title="Registrar Asistencia (Check-in)">
+                                                <i class="bi bi-person-check-fill"></i>
+                                            </button>
+                                        </form>
+
+                                        {{-- Botón para Gestionar Rutina --}}
+                                        <a href="{{ route('trainer.clients.routine.index', $client->id_cliente) }}"
+                                            class="btn btn-sm btn-secondary" title="Gestionar Rutina">
+                                            <i class="bi bi-list-task"></i>
+                                        </a>
+
+                                        {{-- Botón de Progreso --}}
+                                        <a href="{{ route('trainer.clients.progress_tracking', $client->id_cliente) }}"
+                                            class="btn btn-sm btn-info" title="Ver/Registrar Progreso">
+                                            <i class="bi bi-graph-up"></i>
+                                        </a>
+
+                                    </div>
                                 </td>
+                                {{-- ===== FIN DE LA MODIFICACIÓN ===== --}}
                             </tr>
                         @endforeach
                     </tbody>
@@ -55,12 +81,14 @@
             </div>
         </div>
 
-        <div class="mt-4 d-flex justify-content-center">
-            {{ $clients->links() }}
-        </div>
+        @if($clients->hasPages())
+            <div class="mt-4 d-flex justify-content-center">
+                {{ $clients->links() }}
+            </div>
+        @endif
     @else
         <div class="alert alert-info">
-            No hay clientes registrados en el sistema o asignados a ti por el momento.
+            No hay clientes asignados a ti por el momento.
         </div>
     @endif
 

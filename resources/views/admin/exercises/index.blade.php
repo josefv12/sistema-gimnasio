@@ -21,11 +21,28 @@
         <a href="{{ route('admin.exercises.create') }}" class="btn btn-primary">Añadir Nuevo Ejercicio</a>
     </div>
 
+    {{-- ===== INICIO DE LA MODIFICACIÓN ===== --}}
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form action="{{ route('admin.exercises.index') }}" method="GET" class="row g-3 align-items-center">
+                <div class="col-auto">
+                    <label for="search" class="visually-hidden">Buscar</label>
+                    <input type="text" class="form-control" id="search" name="search"
+                        placeholder="Buscar por nombre o descripción..." value="{{ request('search') }}">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-info">Buscar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {{-- ===== FIN DE LA MODIFICACIÓN ===== --}}
+
     @if(isset($exercises) && !$exercises->isEmpty())
         <table class="table table-striped table-hover">
             <thead>
                 <tr>
-                    <th style="width: 5%;">ID</th> {{-- Ajusta anchos si es necesario --}}
+                    <th style="width: 5%;">ID</th>
                     <th style="width: 20%;">Nombre</th>
                     <th style="width: 35%;">Descripción</th>
                     <th style="width: 30%;">Instrucciones</th>
@@ -37,19 +54,17 @@
                     <tr>
                         <td>{{ $exercise->id_ejercicio }}</td>
                         <td>{{ $exercise->nombre }}</td>
-                        <td>{{ $exercise->descripcion }}</td> {{-- Quitamos Str::limit --}}
-                        <td>{{ $exercise->instrucciones }}</td> {{-- Quitamos Str::limit --}}
+                        <td>{{ $exercise->descripcion }}</td>
+                        <td>{{ $exercise->instrucciones }}</td>
                         <td>
                             <a href="{{ route('admin.exercises.edit', $exercise->id_ejercicio) }}"
-                                class="btn btn-sm btn-warning mb-1 d-block">Editar</a> {{-- d-block y mb-1 para que los botones
-                            estén uno debajo del otro si hay poco espacio --}}
+                                class="btn btn-sm btn-warning mb-1 d-block">Editar</a>
                             <form action="{{ route('admin.exercises.destroy', $exercise->id_ejercicio) }}" method="POST"
                                 style="display:inline-block; width:100%;"
                                 onsubmit="return confirm('¿Estás seguro de que deseas eliminar este ejercicio? Esta acción no se puede deshacer.');">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="btn btn-sm btn-danger d-block w-100">Eliminar</button> {{-- w-100 para
-                                que ocupe el ancho, d-block --}}
+                                <button type="submit" class="btn btn-sm btn-danger d-block w-100">Eliminar</button>
                             </form>
                         </td>
                     </tr>

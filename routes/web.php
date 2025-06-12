@@ -22,6 +22,9 @@ use App\Http\Controllers\Admin\ExerciseController;
 use App\Http\Controllers\Admin\RoutineController;
 use App\Http\Controllers\Admin\GroupClassController;
 use App\Http\Controllers\Admin\RoutineAssignmentController;
+use App\Http\Controllers\Admin\AttendanceReportController;
+use App\Http\Controllers\Trainer\ClientRoutineController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -43,15 +46,19 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::middleware(['auth:admin', 'can:manage clients,admin'])->prefix('clientes')->name('clients.')->group(function () {
         Route::get('/', [ClientManagementController::class, 'index'])->name('index');
         Route::get('/crear', [ClientManagementController::class, 'create'])->name('create');
+        Route::get('/{cliente}', [ClientManagementController::class, 'show'])->name('show');
         Route::post('/', [ClientManagementController::class, 'store'])->name('store');
         Route::get('/{cliente}/editar', [ClientManagementController::class, 'edit'])->name('edit');
         Route::put('/{cliente}', [ClientManagementController::class, 'update'])->name('update');
         Route::delete('/{cliente}', [ClientManagementController::class, 'destroy'])->name('destroy');
+
+        Route::get('/{cliente}/asignar-membresia', [ClientManagementController::class, 'createMembership'])->name('memberships.create');
+        Route::post('/{cliente}/asignar-membresia', [ClientManagementController::class, 'storeMembership'])->name('memberships.store');
     });
 
     Route::middleware(['auth:admin', 'can:manage trainers,admin'])->prefix('entrenadores')->name('trainers.')->group(function () {
         Route::get('/', [TrainerManagementController::class, 'index'])->name('index');
-        Route::get('/crear', [TrainerManagementController::class, 'create'])->name('create');
+        Route::get('/crear', action: [TrainerManagementController::class, 'create'])->name('create');
         Route::post('/', [TrainerManagementController::class, 'store'])->name('store');
         Route::get('/{entrenador}/editar', [TrainerManagementController::class, 'edit'])->name('edit');
         Route::put('/{entrenador}', [TrainerManagementController::class, 'update'])->name('update');
@@ -60,7 +67,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     Route::middleware(['auth:admin', 'can:manage administrators,admin'])->group(function () {
         Route::get('/administradores', [AdminManagementController::class, 'index'])->name('admins.index');
-        // Aquí irían las rutas CRUD para Administradores
     });
 
     Route::middleware(['auth:admin', 'can:manage memberships,admin'])->prefix('tipos-membresia')->name('membership_types.')->group(function () {
@@ -114,6 +120,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('/{asignacionRutinaCliente}', [RoutineAssignmentController::class, 'update'])->name('update');
         Route::delete('/{asignacionRutinaCliente}', [RoutineAssignmentController::class, 'destroy'])->name('destroy');
     });
+
+    Route::get('/reporte-asistencias', [AttendanceReportController::class, 'index'])
+        ->name('attendances.report')
+        ->middleware(['auth:admin', 'can:view general attendance history,admin']);
 });
 
 // --- Rutas de Autenticación y Dashboard para Entrenadores ---
@@ -129,6 +139,15 @@ Route::prefix('trainer')->name('trainer.')->group(function () {
     Route::get('/clientes/{cliente}/progreso', [TrainerDashboardController::class, 'showClientProgress'])->name('clients.progress_tracking')->middleware('auth:trainer');
     Route::get('/clientes/{cliente}/progreso/crear', [TrainerDashboardController::class, 'createClientProgress'])->name('clients.progress.create')->middleware('auth:trainer');
     Route::post('/clientes/{cliente}/progreso', [TrainerDashboardController::class, 'storeClientProgress'])->name('clients.progress.store')->middleware('auth:trainer');
+    Route::post('/clientes/{cliente}/registrar-asistencia', [TrainerDashboardController::class, 'registerAttendance'])->name('clients.attendance.store')->middleware('auth:trainer');
+
+    Route::get('/clientes/{cliente}/rutina', [ClientRoutineController::class, 'index'])->name('clients.routine.index');
+    Route::post('/clientes/{cliente}/rutina', [ClientRoutineController::class, 'store'])->name('clients.routine.store');
+
+    // ===== INICIO DE LA MODIFICACIÓN =====
+    // Nota: Usamos {rutina} en lugar de {cliente} porque la acción es sobre la rutina.
+    Route::post('/rutinas/{rutina}/ejercicios', [ClientRoutineController::class, 'addExercise'])->name('clients.routine.add_exercise');
+    // ===== FIN DE LA MODIFICACIÓN =====
 });
 
 // --- Rutas de Autenticación y Dashboard para Clientes ---
@@ -138,13 +157,10 @@ Route::prefix('cliente')->name('client.')->group(function () {
     Route::post('/logout', [ClientLoginController::class, 'logout'])->name('logout')->middleware('auth:web');
     Route::get('/dashboard', [ClientDashboardController::class, 'index'])->name('dashboard')->middleware('auth:web');
     Route::get('/clases-grupales', [ClientDashboardController::class, 'listGroupClasses'])->name('group_classes.list')->middleware('auth:web');
-    Route::post('/clases-grupales/{claseGrupal}/reservar', [ClientDashboardController::class, 'bookClass'])->name('group_classes.book')->middleware('auth:web');
+    Route::post('/clases-grupales/{claseGrupal}/reservar', [ClientRoutineController::class, 'bookClass'])->name('group_classes.book');
     Route::get('/mis-reservas', [ClientDashboardController::class, 'myBookings'])->name('my_bookings')->middleware('auth:web');
-    Route::delete('/mis-reservas/{clienteClaseReserva}/cancelar', [ClientDashboardController::class, 'cancelBooking'])->name('bookings.cancel')->middleware('auth:web');
+    Route::delete('/mis-reservas/{clienteClaseReserva}/cancelar', [ClientRoutineController::class, 'cancelBooking'])->name('bookings.cancel');
     Route::get('/mi-progreso', [ClientDashboardController::class, 'myProgress'])->name('my_progress')->middleware('auth:web');
     Route::get('/mi-rutina', [ClientDashboardController::class, 'myRoutine'])->name('my_routine')->middleware('auth:web');
-
-    // ===== INICIO DE LA MODIFICACIÓN =====
     Route::get('/mi-membresia', [ClientDashboardController::class, 'myMembership'])->name('my_membership')->middleware('auth:web');
-    // ===== FIN DE LA MODIFICACIÓN =====
 });

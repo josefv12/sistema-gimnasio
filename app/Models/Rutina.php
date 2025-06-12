@@ -9,21 +9,52 @@ class Rutina extends Model
 {
     use HasFactory;
 
+    // Asumiendo que tu tabla se llama 'Rutina' y la PK es 'id_rutina'
     protected $table = 'Rutina';
     protected $primaryKey = 'id_rutina';
-    public $timestamps = true;
 
+    // Atributos que se pueden asignar masivamente
     protected $fillable = [
         'nombre',
+        'descripcion',
         'id_entrenador',
-        // NO incluyas 'descripcion', 'objetivo', 'nivel' aquí si no están en la tabla
+        // 'nivel_dificultad', // etc.
     ];
 
-    public function entrenadorCreador()
+    // ===== INICIO DE LA MODIFICACIÓN =====
+    // Se añade esta propiedad para asegurar que Laravel maneje created_at y updated_at
+    public $timestamps = true;
+    // ===== FIN DE LA MODIFICACIÓN =====
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Relaciones Eloquent
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Obtiene el entrenador que creó esta rutina.
+     */
+    public function entrenador()
     {
         return $this->belongsTo(Entrenador::class, 'id_entrenador', 'id_entrenador');
     }
 
+    // ===== INICIO DE LA MODIFICACIÓN =====
+    /**
+     * Obtiene los registros de la tabla pivote Rutina_Ejercicio asociados a esta rutina.
+     */
+    public function rutinaEjercicios()
+    {
+        // Una Rutina TIENE MUCHOS registros de RutinaEjercicio.
+        return $this->hasMany(RutinaEjercicio::class, 'id_rutina', 'id_rutina');
+    }
+    // ===== FIN DE LA MODIFICACIÓN =====
+
+    /**
+     * Obtiene los ejercicios asociados a esta rutina a través de la tabla pivote.
+     */
     public function ejercicios()
     {
         return $this->belongsToMany(
@@ -34,7 +65,7 @@ class Rutina extends Model
         )
             ->using(RutinaEjercicio::class)
             ->withPivot([
-                'id_rutina_ejercicio', // <-- AÑADIDO AQUÍ
+                'id_rutina_ejercicio',
                 'orden',
                 'series',
                 'repeticiones',
@@ -45,6 +76,9 @@ class Rutina extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Obtiene todas las veces que esta rutina ha sido asignada a clientes.
+     */
     public function asignacionesAClientes()
     {
         return $this->hasMany(AsignacionRutinaCliente::class, 'id_rutina', 'id_rutina');
